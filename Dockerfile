@@ -2,6 +2,8 @@
 FROM python:3.6-alpine3.10
 RUN set -ex; \
     \
+    export PYTHONDONTWRITEBYTECODE=yes; \
+    \
     apk add --no-cache \
         libjpeg-turbo \
         libpq \
@@ -17,7 +19,6 @@ RUN set -ex; \
         pcre-dev \
     ; \
     \
-    export PYTHONDONTWRITEBYTECODE=yes; \
     pip install --no-cache-dir --no-compile 'uWSGI>=2.0,<2.1'; \
     \
     addgroup -g 101 -S taiga; \
@@ -31,6 +32,8 @@ ENV TAIGA_VERSION=4.2.12 \
     TAIGA_FRONT_SHA256SUM=5108de2580b7f344d86e020cab83ecc6c635496ea97b5a6648f420e1202c8da7
 RUN set -ex; \
     \
+    export PYTHONDONTWRITEBYTECODE=yes; \
+    \
     apk add --no-cache --virtual .build-deps \
         gcc \
         gettext \
@@ -42,6 +45,12 @@ RUN set -ex; \
         zlib-dev \
     ; \
     \
+    mkdir -p \
+        /etc/opt/taiga-back \
+        /etc/opt/taiga-front \
+        /srv/taiga-back/media \
+        /srv/taiga-back/static; \
+    \
     wget -q -O taiga-back.tar.gz \
         https://github.com/taigaio/taiga-back/archive/${TAIGA_VERSION}.tar.gz; \
     echo "${TAIGA_BACK_SHA256SUM}  taiga-back.tar.gz" | sha256sum -c; \
@@ -52,10 +61,25 @@ RUN set -ex; \
     # Django 1.11.22 is insecure
     sed -i '/^django==/ s/1\.11\.22$/1.11.23/' requirements.txt; \
     sed -i '/^gunicorn==/d' requirements.txt; \
-    export PYTHONDONTWRITEBYTECODE=yes; \
     pip install --no-cache-dir --no-compile -r requirements.txt; \
     ./manage.py compilemessages; \
-    mkdir -p /etc/opt/taiga-back /srv/taiga-back/media /srv/taiga-back/static; \
+    find . -mindepth 1 \( \
+            -name '*.po' -o ! \( \
+                -path ./LICENSE \
+                -o \
+                -path ./manage.py \
+                -o \
+                -path ./NOTICE \
+                -o \
+                -path ./settings \
+                -o \
+                -path ./settings/'*' \
+                -o \
+                -path ./taiga \
+                -o \
+                -path ./taiga/'*' \
+            \) \
+        \) -exec rm -rf '{}' +; \
     cd -; \
     \
     wget -q -O taiga-front-dist.tar.gz \
@@ -64,7 +88,6 @@ RUN set -ex; \
     tar -xzf taiga-front-dist.tar.gz; \
     mv taiga-front-dist-${TAIGA_VERSION}-stable/dist /opt/taiga-front; \
     rm -r taiga-front-dist.tar.gz taiga-front-dist-${TAIGA_VERSION}-stable; \
-    mkdir -p /etc/opt/taiga-front; \
     # Removes origin from "api" URL. By default, the API is served on port
     # 8080. Also, the URL doesn't have to be absolute, so this make the
     # default configuration more generic.
@@ -76,7 +99,7 @@ RUN set -ex; \
     find /opt/taiga-back /opt/taiga-front -type f -exec chmod 644 '{}' +; \
     chmod 755 /opt/taiga-back/manage.py; \
     \
-    find /opt/taiga-back /usr/local -depth -type d -name tests -exec rm -rf '{}' +; \
+    find /usr/local -depth -type d -name tests -exec rm -rf '{}' +; \
     apk del .build-deps; \
     rm -rf /var/cache/apk/*
 COPY files /
