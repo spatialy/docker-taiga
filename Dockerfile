@@ -1,5 +1,4 @@
-# Python 3.7 is currently not suppored. See https://github.com/taigaio/taiga-back/issues/1328.
-FROM python:3.6-alpine3.10
+FROM python:3.7-alpine3.10
 RUN set -ex; \
     \
     export PYTHONDONTWRITEBYTECODE=yes; \
@@ -27,14 +26,15 @@ RUN set -ex; \
     apk del .build-deps; \
     rm -rf /var/cache/apk/*
 # !!! DO NOT FORGET TO UPDATE "tags" FILE !!!
-ENV TAIGA_VERSION=4.2.12 \
-    TAIGA_BACK_SHA256SUM=73f4c58a9ce1e18c0cc541354c32275549027bd195a00d930034dbd3a8b23dfb \
-    TAIGA_FRONT_SHA256SUM=5108de2580b7f344d86e020cab83ecc6c635496ea97b5a6648f420e1202c8da7
+ENV TAIGA_VERSION=4.2.14 \
+    TAIGA_BACK_SHA256SUM=83778c4753478de7dca9b8f50e504c93fee3a3b04e0a856a0676862a7e0a5387 \
+    TAIGA_FRONT_SHA256SUM=b315135f5cafb9f9c9a8731f5c1ab181dc6acd3ff641d5d83b3585fd3faab7c1
 RUN set -ex; \
     \
     export PYTHONDONTWRITEBYTECODE=yes; \
     \
     apk add --no-cache --virtual .build-deps \
+        g++ \
         gcc \
         gettext \
         libffi-dev \
@@ -49,7 +49,8 @@ RUN set -ex; \
         /etc/opt/taiga-back \
         /etc/opt/taiga-front \
         /srv/taiga-back/media \
-        /srv/taiga-back/static; \
+        /srv/taiga-back/static \
+    ; \
     \
     wget -q -O taiga-back.tar.gz \
         https://github.com/taigaio/taiga-back/archive/${TAIGA_VERSION}.tar.gz; \
@@ -58,8 +59,6 @@ RUN set -ex; \
     rm -r taiga-back.tar.gz; \
     mv taiga-back-${TAIGA_VERSION} /opt/taiga-back; \
     cd /opt/taiga-back; \
-    # Django 1.11.22 is insecure
-    sed -i '/^django==/ s/1\.11\.22$/1.11.23/' requirements.txt; \
     sed -i '/^gunicorn==/d' requirements.txt; \
     pip install --no-cache-dir --no-compile -r requirements.txt; \
     ./manage.py compilemessages; \
@@ -83,11 +82,11 @@ RUN set -ex; \
     cd -; \
     \
     wget -q -O taiga-front-dist.tar.gz \
-        https://github.com/taigaio/taiga-front-dist/archive/${TAIGA_VERSION}-stable.tar.gz; \
+        https://github.com/taigaio/taiga-front-dist/archive/${TAIGA_VERSION}.tar.gz; \
     echo "${TAIGA_FRONT_SHA256SUM}  taiga-front-dist.tar.gz" | sha256sum -c; \
     tar -xzf taiga-front-dist.tar.gz; \
-    mv taiga-front-dist-${TAIGA_VERSION}-stable/dist /opt/taiga-front; \
-    rm -r taiga-front-dist.tar.gz taiga-front-dist-${TAIGA_VERSION}-stable; \
+    mv taiga-front-dist-${TAIGA_VERSION}/dist /opt/taiga-front; \
+    rm -r taiga-front-dist.tar.gz taiga-front-dist-${TAIGA_VERSION}; \
     # Removes origin from "api" URL. By default, the API is served on port
     # 8080. Also, the URL doesn't have to be absolute, so this make the
     # default configuration more generic.
